@@ -1,0 +1,5 @@
+array*
+*.dat
+/_MACOSX/
+/.idea/
+/__pycache__/
