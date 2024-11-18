@@ -5,7 +5,7 @@ import numpy as np
 import torch
 
 
-def populateErrorArray(max_error, min_error, data_avg, do_quant):
+def populateErrorArray(max_error, min_error, vRange, data_avg, do_quant, quant_type, is_sparse):
 
     with tiledb.open("arrayD", "r") as arrayD, tiledb.open("arrayUr", "r") as arrayUr, \
             tiledb.open("arrayVr", "r") as arrayVr, tiledb.open("arraySr", "r") as arraySr, \
@@ -37,30 +37,33 @@ def populateErrorArray(max_error, min_error, data_avg, do_quant):
             di = torch.tensor(di, dtype=torch.float, device="cuda")
 
             distances = di - di_prime
-            problem_indices = torch.abs(distances).cpu().numpy() / vRange > eps
-
-            rows, cols = np.nonzero(problem_indices)
-            length_array = [SVD_count] * len(rows)
 
             if do_quant:
-                normalized_errors = (distances - min_error) / (max_error - min_error)
 
-                normalized_errors *= 255
-                normalized_errors = normalized_errors.cpu().numpy().astype(np.uint8)
+                normalized_errors = (distances - min_error) / (max_error - min_error)
+                normalized_errors *= (do_quant - 1)
+                normalized_errors = torch.round(normalized_errors)
+                normalized_errors = normalized_errors.cpu().numpy().astype(quant_type)
 
             else:
                 normalized_errors = distances.cpu().numpy()
 
-            arrayE[length_array, rows, cols] = normalized_errors[rows, cols]
+            if is_sparse:
+                problem_indices = torch.abs(distances).cpu().numpy() / vRange > eps
+                rows, cols = np.nonzero(problem_indices)
+                length_array = [SVD_count] * len(rows)
+                arrayE[length_array, rows, cols] = normalized_errors[rows, cols]
+            else:
+                arrayE[SVD_count] = distances.cpu().numpy()
 
             SVD_count += 1
 
 
-def reconstructAndCheck(max_error, min_error, data_avg, do_quant):
+def reconstructAndCheck(max_error, min_error, vRange, data_avg, do_quant, is_sparse):
 
     with tiledb.open("arrayD", "r") as arrayD, tiledb.open("arrayUr", "r") as arrayUr, \
             tiledb.open("arrayVr", "r") as arrayVr, tiledb.open("arraySr", "r") as arraySr, \
-            tiledb.open("arrayE","r") as arrayE:
+            tiledb.open("arrayE","r") as arrayE, tiledb.open("arrayD_prime", "w") as arrayD_prime:
 
         T_length, Y_length, X_length = SVD_size
         SVD_count = 0
@@ -82,19 +85,28 @@ def reconstructAndCheck(max_error, min_error, data_avg, do_quant):
                  ]["Temperatures"].reshape(SVD_shape)
 
             error_data = arrayE[SVD_count]
+            ei = error_data["E"]
 
+            # dequant if data was quantized
             if do_quant:
-                ei = error_data["E"].astype(np.float32) / 255.0 * (max_error - min_error) + min_error
-            else:
-                ei = error_data["E"]
+                ei = ei.astype(np.float32) / (do_quant - 1) * (max_error - min_error) + min_error
 
-            indices = error_data["width"], error_data["length"]
+            # combine D_prime with E
             di_prime_plus_ei = di_prime.copy()
+            if is_sparse:
+                indices = error_data["width"], error_data["length"]
+                for row, col, value in zip(indices[0], indices[1], ei):
+                    di_prime_plus_ei[row, col] += value
 
-            for row, col, value in zip(indices[0], indices[1], ei):
-                di_prime_plus_ei[row, col] += value
+            else:
+                di_prime_plus_ei += ei
 
-            distances = di - di_prime_plus_ei
+            # construct arrayD_prime explicitly
+            arrayD_prime[
+                t_index:t_index + T_length, y_index:y_index + Y_length, x_index:x_index + X_length
+            ] = di_prime_plus_ei.reshape(T_length, Y_length, X_length)
+
+            distances = np.abs(di - di_prime_plus_ei)
             assert np.all(distances / vRange <= eps), "Error correction failed"
 
             SVD_count += 1
