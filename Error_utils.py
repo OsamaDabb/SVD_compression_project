@@ -54,7 +54,7 @@ def populateErrorArray(max_error, min_error, vRange, data_avg, do_quant, quant_t
                 length_array = [SVD_count] * len(rows)
                 arrayE[length_array, rows, cols] = normalized_errors[rows, cols]
             else:
-                arrayE[SVD_count] = distances.cpu().numpy()
+                arrayE[SVD_count] = normalized_errors
 
             SVD_count += 1
 
@@ -101,9 +101,10 @@ def reconstructAndCheck(max_error, min_error, vRange, data_avg, do_quant, is_spa
             else:
                 di_prime_plus_ei += ei
 
+
             # construct arrayD_prime explicitly
             arrayD_prime[
-                t_index:t_index + T_length, y_index:y_index + Y_length, x_index:x_index + X_length
+            t_index:t_index + T_length, y_index:y_index + Y_length, x_index:x_index + X_length
             ] = di_prime_plus_ei.reshape(T_length, Y_length, X_length)
 
             distances = np.abs(di - di_prime_plus_ei)
