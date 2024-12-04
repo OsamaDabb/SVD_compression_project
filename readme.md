@@ -22,4 +22,4 @@ arrayD, arrayUr, arraySr, arrayVr, arrayE and  the reconstructed arrayD_prime wh
 
 ## Results
 
-achieves a best-case compression ratio of $\rho = 17.8$ for $\eps = 10^{-2}$
+achieves a best-case compression ratio of $\rho = 17.8$ for $\epsilon = 10^{-2}$
