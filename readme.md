@@ -1,4 +1,4 @@
-# SVD Compression ods Redsea re-analysis data
+# SVD Compression of Redsea re-analysis data
 
 ## Installation
 After downloading the project, ensure that the 
