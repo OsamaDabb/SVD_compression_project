@@ -1,5 +1,19 @@
 # SVD Compression of Redsea re-analysis data
 
+## Summary
+
+This project presents a novel approach to compressing the Red Sea re-
+analysis dataset, consisting of high-resolution GAN-generated tem-
+perature maps, using low-rank approximation via Singular Value
+Decomposition (SVD). We introduce techniques such as data zero-
+centering and quantization to enhance compression efficiency while
+maintaining a predefined error threshold. Through
+extensive experiments and ablation studies, we evaluate the impact
+of SVD rank, tiling dimensions, and error quantization on the com-
+pression ratio.
+
+Full paper can be found here: [SVD Compression Report](files/Database_Project-1.pdf)
+
 ## Installation
 After downloading the project, ensure that the 
 
